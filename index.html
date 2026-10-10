@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f766e">
+<title>减肥打卡计划</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background:#f4f5f7; color:#1f2937; font-size:16px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;
+  }
+  .topbar{ position:sticky; top:0; z-index:30; background:rgba(15,118,110,.97); backdrop-filter:saturate(180%) blur(12px); color:#fff; padding-top:env(safe-area-inset-top); }
+  .card{ background:#fff; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .wk{ border-radius:14px; padding:14px; margin-bottom:14px; border:1px solid; }
+  .wk-0{ background:#eefaf5; border-color:#a7e6cd; }
+  .wk-1{ background:#fff8e8; border-color:#f5d99a; }
+  .wk-2{ background:#fdeeee; border-color:#f0b3b3; }
+  .wk.done{ opacity:.62; }
+  .chk{ display:flex; align-items:flex-start; gap:8px; padding:7px 8px; border-radius:9px; cursor:pointer; min-height:40px; transition:background .12s; }
+  .chk:active{ background:rgba(0,0,0,.05); }
+  .chk .box{ width:20px; height:20px; border-radius:5px; border:2px solid #9ca3af; flex:0 0 20px; margin-top:1px; display:flex; align-items:center; justify-content:center; background:#fff; }
+  .chk.on .box{ background:#0f766e; border-color:#0f766e; }
+  .chk.on .box::after{ content:"✓"; color:#fff; font-size:14px; font-weight:700; line-height:1; }
+  .chk.on .lbl{ color:#6b7280; text-decoration:line-through; }
+  .lbl{ font-size:14px; line-height:1.45; }
+  .navtab{ flex:1; text-align:center; padding:7px 0 calc(7px + env(safe-area-inset-bottom)); font-size:12px; color:#9ca3af; border-top:3px solid transparent; }
+  .navtab.act{ color:#0f766e; border-top-color:#0f766e; font-weight:600; }
+  .navtab .ic{ font-size:20px; display:block; line-height:1.1; }
+  input,textarea,select{ font-size:16px; }
+  .inp{ width:100%; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; min-height:44px; background:#fff; outline:none; }
+  .inp:focus{ border-color:#0f766e; }
+  button{ min-height:44px; border-radius:10px; font-size:15px; cursor:pointer; border:none; }
+  .btn-p{ background:#0f766e; color:#fff; }
+  .btn-s{ background:#e5e7eb; color:#374151; }
+  details > summary{ list-style:none; cursor:pointer; }
+  details > summary::-webkit-details-marker{ display:none; }
+  .foodline{ font-size:14px; line-height:1.5; }
+  .chip{ display:inline-block; font-size:12px; padding:3px 9px; border-radius:999px; background:#eef2f7; color:#475569; margin:2px 4px 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="px-4 pt-3 pb-3">
+    <div class="text-lg font-bold">减肥打卡计划</div>
+    <div class="text-xs opacity-90 mt-0.5" id="subTitle">4 个月 · 120斤 → 95斤</div>
+    <div class="mt-2.5 flex items-center gap-2">
+      <div class="flex-1 h-2.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.25)">
+        <div class="h-full rounded-full bg-white transition-all" id="progBar" style="width:0%"></div>
+      </div>
+      <div class="text-xs font-semibold whitespace-nowrap"><span id="progTxt">0%</span></div>
+    </div>
+    <div class="grid grid-cols-4 gap-1.5 mt-3 text-center">
+      <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.15)">
+        <div class="text-[10px] opacity-85">已坚持</div>
+        <div class="text-sm font-bold" id="statStay">0天</div>
+      </div>
+      <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.15)">
+        <div class="text-[10px] opacity-85">已减</div>
+        <div class="text-sm font-bold" id="statLoss">0斤</div>
+      </div>
+      <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.15)">
+        <div class="text-[10px] opacity-85">今日完成</div>
+        <div class="text-sm font-bold" id="statToday">0%</div>
+      </div>
+      <div class="rounded-lg py-1.5" style="background:rgba(255,255,255,.15)">
+        <div class="text-[10px] opacity-85">距目标</div>
+        <div class="text-sm font-bold" id="statGap">25斤</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="px-3 pt-3" style="padding-bottom:16px">
+
+  <!-- ========== 主页：周打卡表 ========== -->
+  <section id="sec-home">
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold mb-1">我的体重记录</div>
+      <div class="flex gap-2 items-end">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500">今日晨起体重（斤）</label>
+          <input type="number" step="0.1" class="inp mt-1" id="wInput" placeholder="如 120.0">
+        </div>
+        <button class="btn-p px-5" onclick="saveWeight()" style="min-height:44px">记录</button>
+      </div>
+      <div class="text-xs text-gray-500 mt-2" id="wTip">尚未记录</div>
+    </div>
+
+    <div id="weekList"></div>
+
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold mb-2">阶段说明</div>
+      <div class="text-xs leading-relaxed text-gray-600">
+        <span class="chip">第1—4周 筑基期 120→115斤</span>
+        <span class="chip">第5—12周 稳步下降 115→102斤</span>
+        <span class="chip">第13—18周 巩固收尾 102→95斤</span>
+        <div class="mt-2">蓝色=筑基期 · 黄色=稳步下降期 · 红色=巩固收尾期</div>
+        <div class="mt-1">勾选后自动保存；剩余周次显示为灰色预告。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 打卡：今日明细 ========== -->
+  <section id="sec-checkin" class="hidden">
+    <div class="card p-4 mb-3">
+      <div class="text-sm font-bold mb-3">今日饮水</div>
+      <div class="flex items-center gap-3">
+        <button class="btn-s" style="width:48px" onclick="addWater(-1)">−</button>
+        <div class="flex-1 text-center">
+          <div class="text-2xl font-bold" id="waterTxt">0 / 8 杯</div>
+          <div class="text-xs text-gray-500 mt-0.5">每杯约 250ml</div>
+        </div>
+        <button class="btn-p" style="width:48px" onclick="addWater(1)">＋</button>
+      </div>
+    </div>
+
+    <div class="card p-4 mb-3">
+      <div class="text-sm font-bold mb-3">今日睡眠</div>
+      <div class="flex gap-2">
+        <input type="number" step="0.5" class="inp flex-1" id="sleepInput" placeholder="睡眠小时数 如 7.5">
+        <button class="btn-p px-5" onclick="saveSleep()">记录</button>
+      </div>
+      <div class="text-xs text-gray-500 mt-2">建议 7 小时以上，23:00 前入睡</div>
+    </div>
+
+    <div class="card p-4 mb-3">
+      <div class="text-sm font-bold mb-3">今日备注</div>
+      <textarea class="inp" rows="3" id="noteInput" placeholder="饿不饿、状态如何、有没有作弊餐…" oninput="saveNote()"></textarea>
+    </div>
+
+    <div class="card p-4">
+      <div class="text-sm font-bold mb-2">今日三餐（按当周套系）</div>
+      <div id="todayMeals" class="space-y-3"></div>
+    </div>
+  </section>
+
+  <!-- ========== 饮食：可自定义 ========== -->
+  <section id="sec-food" class="hidden">
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold">我的三餐计划</div>
+      <div class="text-xs text-gray-500 mt-1">可以直接修改每套内容，例如把"卤牛肉"换成"牛肉丸"，改完自动保存，打卡表同步更新。</div>
+    </div>
+    <div id="foodEditor"></div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn-s flex-1" onclick="resetFood()">恢复默认</button>
+      <button class="btn-p flex-1" onclick="scrollTo(0,0)">完成</button>
+    </div>
+  </section>
+
+  <!-- ========== 图表 ========== -->
+  <section id="sec-charts" class="hidden">
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold mb-2">体重趋势（斤）</div>
+      <div id="chartWeight" style="width:100%;height:230px"></div>
+    </div>
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold mb-2">近 14 天完成率</div>
+      <div id="chartRate" style="width:100%;height:200px"></div>
+    </div>
+    <div class="card p-3 mb-3">
+      <div class="text-sm font-bold mb-2">周完成情况</div>
+      <div id="chartWeek" style="width:100%;height:220px"></div>
+    </div>
+  </section>
+
+  <!-- ========== 数据 ========== -->
+  <section id="sec-data" class="hidden">
+    <div class="card p-4 mb-3">
+      <div class="text-sm font-bold mb-2">数据管理</div>
+      <div class="text-xs text-gray-500 mb-3">数据保存在本机浏览器中。换手机/清缓存前请先导出备份。</div>
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn-p" onclick="exportData()">导出备份</button>
+        <button class="btn-s" onclick="document.getElementById('impFile').click()">导入备份</button>
+      </div>
+      <input type="file" id="impFile" accept=".json" class="hidden" onchange="importData(event)">
+      <button class="btn-s w-full mt-2" style="color:#b91c1c" onclick="clearData()">清空全部数据</button>
+    </div>
+    <div class="card p-4 mb-3">
+      <div class="text-sm font-bold mb-2">起点设置</div>
+      <div class="flex gap-2 items-end">
+        <div class="flex-1">
+          <label class="text-xs text-gray-500">起始体重（斤）</label>
+          <input type="number" step="0.1" class="inp mt-1" id="startW" onchange="saveStart()">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-500">目标体重（斤）</label>
+          <input type="number" step="0.1" class="inp mt-1" id="goalW" onchange="saveStart()">
+        </div>
+      </div>
+      <div class="text-xs text-gray-500 mt-2">改动会影响进度条与曲线目标线</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-sm font-bold mb-2">使用小贴士</div>
+      <div class="text-xs leading-relaxed text-gray-600">
+        1. 早上起床如厕后、空腹称重，数据最准<br>
+        2. 主打鸡、牛、蛋、豆制品，外卖选卤味/烤鸡/轻食<br>
+        3. 无糖饮料、拿铁不用额外记录<br>
+        4. 连续 5 天体重浮动 ≤0.3 斤 → 触发平台期方案
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="fixed bottom-0 left-0 right-0 bg-white z-30 flex" style="box-shadow:0 -1px 8px rgba(0,0,0,.07)">
+  <div class="navtab act" data-tab="home" onclick="go('home')"><span class="ic">🏠</span>打卡表</div>
+  <div class="navtab" data-tab="checkin" onclick="go('checkin')"><span class="ic">✅</span>今日</div>
+  <div class="navtab" data-tab="food" onclick="go('food')"><span class="ic">🍱</span>饮食</div>
+  <div class="navtab" data-tab="charts" onclick="go('charts')"><span class="ic">📊</span>图表</div>
+  <div class="navtab" data-tab="data" onclick="go('data')"><span class="ic">⚙️</span>数据</div>
+</nav>
+
+<script>
+/* ================= 常量配置 ================= */
+const KEY = 'diet_v3';
+
+const START_W = 120, GOAL_W = 95;
+const TOTAL_WEEKS = 18;
+
+/* 每周目标体重（第0周=起点120） */
+const WEEK_TARGET = [120,119,118,117,116,115,113.5,112,110.5,109,107.5,106,104.5,103,101.5,100,98.5,97,95.5,95];
+
+/* ============ 每周打卡任务模板（结构：每周3组×若干项） ============ */
+/* 每项格式：{k:'唯一ID', t:'显示文字'}；组1=饮食 组2=运动 组3=生活习惯 */
+const TASK_TEMPLATES = [
+  // 第1周
+  { diet:['主食减半','断含糖饮料','外卖少油'],
+    act :['8000步','绕路回家15min','自重训练10min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第2周
+  { diet:['主食减半','断含糖饮料','外卖少油'],
+    act :['8000步','绕路回家15min','自重训练10min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第3周
+  { diet:['晚餐换沙拉','主食仅午餐','断含糖饮料'],
+    act :['10000步','跳绳5min','自重训练15min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第4周
+  { diet:['晚餐换沙拉','主食仅午餐','断含糖饮料'],
+    act :['10000步','跳绳5min','自重训练15min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第5周
+  { diet:['碳水仅午餐','断零食','晚8点后禁食'],
+    act :['12000步','HIIT 15min','自重训练15min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第6周
+  { diet:['碳水仅午餐','断零食','晚8点后禁食'],
+    act :['12000步','HIIT 15min','自重训练15min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第7周
+  { diet:['碳水仅午餐','断零食','晚8点后禁食'],
+    act :['12000步','HIIT 20min','力量训练20min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第8周
+  { diet:['碳水仅午餐','断零食','晚8点后禁食'],
+    act :['12000步','HIIT 20min','力量训练20min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第9周
+  { diet:['碳水仅午餐','高蛋白优先','晚8点后禁食'],
+    act :['13000步','HIIT 20min','力量训练25min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第10周
+  { diet:['碳水仅午餐','高蛋白优先','晚8点后禁食'],
+    act :['13000步','HIIT 20min','力量训练25min'],
+    habit:['2000ml水','16:8轻断食','23点前睡'] },
+  // 第11周
+  { diet:['碳水仅午餐','高蛋白优先','晚8点后禁食'],
+    act :['13000步','HIIT 25min','力量训练25min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第12周
+  { diet:['碳水仅午餐','高蛋白优先','晚8点后禁食'],
+    act :['13000步','HIIT 25min','力量训练25min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第13周
+  { diet:['三餐规律','蛋白占30%','无作弊餐'],
+    act :['14000步','HIIT 25min','力量训练30min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第14周
+  { diet:['三餐规律','蛋白占30%','无作弊餐'],
+    act :['14000步','HIIT 25min','力量训练30min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第15周
+  { diet:['三餐规律','蛋白占30%','无作弊餐'],
+    act :['14000步','HIIT 30min','力量训练30min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第16周
+  { diet:['三餐规律','蛋白占30%','无作弊餐'],
+    act :['14000步','HIIT 30min','力量训练30min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第17周
+  { diet:['塑形为主','蛋白占35%','控盐控糖'],
+    act :['15000步','HIIT 30min','力量训练35min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+  // 第18周
+  { diet:['塑形为主','蛋白占35%','控盐控糖'],
+    act :['15000步','HIIT 30min','力量训练35min'],
+    habit:['2500ml水','16:8轻断食','23点前睡'] },
+];
+
+/* ================= 默认三餐（外卖友好·无鱼虾·可编辑） ================= */
+const DEFAULT_FOOD = {
+  A: {
+    name:'A 套 · 鸡牛蛋为主',
+    breakfast:'燕麦片40g + 纯牛奶250ml + 水煮蛋1个 + 番茄1个',
+    lunch:'杂粮饭1拳 + 烤鸡腿（去皮）或卤鸡胸 + 西兰花/时蔬 + 冬瓜汤',
+    dinner:'糙米饭半拳 + 白菜豆腐 / 番茄炒蛋 + 青菜',
+    snack:'无糖酸奶 + 一小把坚果'
+  },
+  B: {
+    name:'B 套 · 卤味轻食',
+    breakfast:'全麦面包2片 + 无糖酸奶 + 煮蛋1个 + 黄瓜',
+    lunch:'糙米饭1拳 + 卤牛腱 / 卤鸡腿 + 油麦菜 + 冬瓜汤',
+    dinner:'鸡腿1只 + 荷兰豆 / 木耳 + 紫菜蛋花汤',
+    snack:'无糖酸奶 + 苹果半个'
+  },
+  C: {
+    name:'C 套 · 食堂友好',
+    breakfast:'杂粮粥1碗 + 水煮蛋1个 + 凉拌黄瓜',
+    lunch:'糙米饭1拳 + 卤鸡腿或鸡胸肉 + 木耳炒青菜',
+    dinner:'蒸红薯1个 + 鸡胸肉丸 / 鸡蛋羹 + 清炒西兰花',
+    snack:'原味坚果一小把'
+  },
+  D: {
+    name:'D 套 · 简餐快手',
+    breakfast:'蔬菜鸡蛋饼 + 无糖豆浆 + 苹果1个',
+    lunch:'藜麦饭1拳 + 番茄炒蛋 + 家常豆腐 + 青菜',
+    dinner:'杂粮饭半拳 + 卤蛋2个 + 鸡胸肉肠 / 煎豆腐 + 菠菜',
+    snack:'小番茄 / 黄瓜条'
+  }
+};
+
+/* ================= 状态 ================= */
+let S = null;
+
+function todayStr(d){ const t = d || new Date(); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+function dayDiff(a,b){ const d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00'); return Math.round((d2-d1)/86400000); }
+function addDays(s,n){ const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n); return todayStr(d); }
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    S = raw ? JSON.parse(raw) : null;
+  }catch(e){ S = null; }
+  if(!S) S = {};
+  if(!S.startDate) S.startDate = todayStr();
+  if(S.startW == null) S.startW = START_W;
+  if(S.goalW == null) S.goalW = GOAL_W;
+  if(!S.days) S.days = {};          // days[日期] = {w, water, sleep, note, done:{taskKey:1}}
+  if(!S.food) S.food = null;
+  if(!S.taskStamp) S.taskStamp = {}; // 任务文本被编辑后的覆盖
+  if(!S.customTasks) S.customTasks = {};
+  save();
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert('保存失败，可能是浏览器隐私模式'); } }
+
+/* 第1周开始日期默认为首次使用当天，可在数据页调整 */
+function weekIndexOf(dateStr){
+  const base = S.startDate;
+  const idx = Math.floor(dayDiff(base, dateStr) / 7);
+  return Math.max(0, Math.min(TOTAL_WEEKS-1, idx));
+}
+function weekStartDate(wi){ return addDays(S.startDate, wi*7); }
+function currentWeekIdx(){ return weekIndexOf(todayStr()); }
+
+/* ================= 渲染：周打卡表 ================= */
+function stageCls(wi){ if(wi<=3) return 'wk-0'; if(wi<=11) return 'wk-1'; return 'wk-2'; }
+
+function getTasks(wi){
+  const base = TASK_TEMPLATES[Math.min(wi, TASK_TEMPLATES.length-1)];
+  const mk = (group, arr) => arr.map((txt,i)=>({
+    k: 'w'+wi+'_'+group+'_'+i,
+    t: (S.customTasks['w'+wi+'_'+group+'_'+i]) || txt
+  }));
+  return { diet: mk('diet', base.diet), act: mk('act', base.act), habit: mk('habit', base.habit) };
+}
+
+function renderWeeks(){
+  const cur = currentWeekIdx();
+  const wrap = document.getElementById('weekList');
+  let html = '';
+  for(let wi=0; wi<TOTAL_WEEKS; wi++){
+    const ws = weekStartDate(wi);
+    const we = addDays(ws, 6);
+    const tgt = WEEK_TARGET[Math.min(wi+1, WEEK_TARGET.length-1)];
+    const t = getTasks(wi);
+    const isCur = wi === cur;
+    const isPast = wi < cur;
+
+    // 完成情况统计（本周7天所有任务的完成率）
+    let tot=0, don=0;
+    for(let d=0; d<7; d++){
+      const ds = addDays(ws,d);
+      if(dayDiff(ds, todayStr()) > 0) continue;   // 未来不统计
+      const rec = S.days[ds];
+      const all = [...t.diet, ...t.act, ...t.habit];
+      tot += all.length;
+      if(rec && rec.done) all.forEach(x=>{ if(rec.done[x.k]) don++; });
+    }
+    const rate = tot ? Math.round(don/tot*100) : 0;
+    const badge = isPast ? (rate>=80?'🟢':rate>=50?'🟡':'🟠') : (isCur?'🔵':'⚪');
+    const doneCls = isPast && rate>=80 ? ' done' : '';
+
+    html += `
+    <div class="wk ${stageCls(wi)}${doneCls}">
+      <div class="flex items-start justify-between mb-2">
+        <div>
+          <div class="font-bold text-[15px]">第${wi+1}周 ${badge}</div>
+          <div class="text-xs text-gray-500 mt-0.5">${ws.slice(5)} 至 ${we.slice(5)}</div>
+        </div>
+        <div class="text-right">
+          <div class="font-bold text-[15px]" style="color:#0f766e">→ ${tgt}斤</div>
+          <div class="text-[11px] text-gray-500">完成 ${rate}%</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-1">
+        ${renderTaskGroup(t.diet, wi, ws, isCur||isPast)}
+        ${renderTaskGroup(t.act, wi, ws, isCur||isPast)}
+        ${renderTaskGroup(t.habit, wi, ws, isCur||isPast)}
+      </div>
+      <div class="mt-2 pt-2" style="border-top:1px dashed rgba(0,0,0,.08)">
+        <div class="text-[11px] text-gray-500 mb-1.5">🍱 本周吃什么（${{A:'A',B:'B',C:'C',D:'D'}[(wi+4)%4]} 套）</div>
+        <div class="foodline text-gray-700" id="wkfood${wi}"></div>
+        <button class="btn-s w-full mt-2" style="min-height:38px;font-size:13px" onclick="go('checkin')">去打卡今日 →</button>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+  // 填三餐文字
+  for(let wi=0; wi<TOTAL_WEEKS; wi++){
+    const key = ['A','B','C','D'][(wi+4)%4];
+    const f = getFood(key);
+    const el = document.getElementById('wkfood'+wi);
+    if(el) el.innerHTML = `<b>${f.breakfast?'早':''}</b>${f.breakfast||''}<br><b>午</b>${f.lunch||''}<br><b>晚</b>${f.dinner||''}`;
+  }
+}
+
+function renderTaskGroup(items, wi, ws, enable){
+  const today = todayStr();
+  const rec = S.days[today] || {};
+  return items.map(x=>{
+    const on = rec.done && rec.done[x.k+'|'+wi] ? ' on' : '';
+    return `<div class="chk${on}" onclick="toggleTask('${x.k}',${wi},event)">
+      <div class="box"></div><div class="lbl">${x.t}</div></div>`;
+  }).join('');
+}
+
+/* 勾选任务：勾当前周即写入今天；勾非当前周提示 */
+function toggleTask(k, wi, ev){
+  ev.stopPropagation();
+  const curW = currentWeekIdx();
+  if(wi !== curW){
+    alert('只能在当前周（第'+(curW+1)+'周）打卡哦～\n当前是第'+(curW+1)+'周。');
+    return;
+  }
+  const ds = todayStr();
+  if(!S.days[ds]) S.days[ds] = { done:{} };
+  if(!S.days[ds].done) S.days[ds].done = {};
+  const key = k+'|'+wi;
+  if(S.days[ds].done[key]) delete S.days[ds].done[key];
+  else S.days[ds].done[key] = 1;
+  save();
+  renderAll();
+}
+
+function getFood(k){
+  const src = S.food && S.food[k] ? S.food[k] : DEFAULT_FOOD[k];
+  return {...DEFAULT_FOOD[k], ...src};
+}
+
+/* ================= 今日三餐 ================= */
+function renderTodayMeals(){
+  const wi = currentWeekIdx();
+  const key = ['A','B','C','D'][(wi+4)%4];
+  const f = getFood(key);
+  const rows = [['早餐',f.breakfast],['午餐',f.lunch],['晚餐',f.dinner],['加餐',f.snack]];
+  document.getElementById('todayMeals').innerHTML =
+    `<div class="text-xs text-gray-500 mb-1">本套系：${f.name||key}</div>` +
+    rows.map(r=>`<div class="flex gap-2 py-1.5" style="border-bottom:1px dashed #eef0f3">
+      <div class="text-xs font-semibold text-teal-700 w-9 shrink-0 pt-0.5">${r[0]}</div>
+      <div class="text-sm leading-relaxed flex-1">${r[1]||'—'}</div>
+    </div>`).join('');
+}
+
+/* ================= 饮食编辑器 ================= */
+function renderFoodEditor(){
+  const sets = ['A','B','C','D'];
+  document.getElementById('foodEditor').innerHTML = sets.map(k=>{
+    const f = getFood(k);
+    return `<div class="card p-3 mb-3">
+      <div class="font-bold text-sm mb-2">${k} 套
+        <input class="inp mt-1.5" style="font-size:14px" value="${(f.name||'').replace(/"/g,'&quot;')}" oninput="editFood('${k}','name',this.value)">
+      </div>
+      ${field(k,'breakfast','早餐',f.breakfast)}
+      ${field(k,'lunch','午餐',f.lunch)}
+      ${field(k,'dinner','晚餐',f.dinner)}
+      ${field(k,'snack','加餐',f.snack)}
+    </div>`;
+  }).join('');
+}
+function field(k,key,label,val){
+  return `<div class="mb-2">
+    <div class="text-xs text-gray-500 mb-1">${label}</div>
+    <textarea class="inp" rows="2" style="font-size:14px" oninput="editFood('${k}','${key}',this.value)">${val||''}</textarea>
+  </div>`;
+}
+function editFood(k,key,val){
+  if(!S.food) S.food = {};
+  if(!S.food[k]) S.food[k] = {};
+  S.food[k][key] = val;
+  save();
+  renderWeeks(); renderTodayMeals();
+}
+function resetFood(){
+  if(!confirm('恢复到默认三餐方案？你自定义的内容会丢失。')) return;
+  S.food = null; save(); renderFoodEditor(); renderWeeks(); renderTodayMeals();
+}
+
+/* ================= 体重 / 水 / 睡眠 ================= */
+function saveWeight(){
+  const v = parseFloat(document.getElementById('wInput').value);
+  if(!v || v<50 || v>300){ alert('请输入 50—300 之间的体重'); return; }
+  const ds = todayStr();
+  if(!S.days[ds]) S.days[ds] = {};
+  S.days[ds].w = v;
+  save(); renderAll();
+}
+function addWater(n){
+  const ds = todayStr();
+  if(!S.days[ds]) S.days[ds] = {};
+  S.days[ds].water = Math.max(0, (S.days[ds].water||0) + n);
+  save(); renderAll();
+}
+function saveSleep(){
+  const v = parseFloat(document.getElementById('sleepInput').value);
+  if(!v){ alert('请输入睡眠小时数'); return; }
+  const ds = todayStr();
+  if(!S.days[ds]) S.days[ds] = {};
+  S.days[ds].sleep = v;
+  save(); renderAll();
+}
+function saveNote(){
+  const ds = todayStr();
+  if(!S.days[ds]) S.days[ds] = {};
+  S.days[ds].note = document.getElementById('noteInput').value;
+  save();
+}
+function saveStart(){
+  const a = parseFloat(document.getElementById('startW').value);
+  const b = parseFloat(document.getElementById('goalW').value);
+  if(a) S.startW = a;
+  if(b) S.goalW = b;
+  save(); renderAll();
+}
+
+/* ================= 顶部统计 ================= */
+function renderStats(){
+  const ds = todayStr();
+  const rec = S.days[ds] || {};
+  // 已坚持天数：有打卡记录的天数
+  const stayDays = Object.keys(S.days).filter(d=>{
+    const r = S.days[d];
+    return r && (r.w || r.water || r.sleep || (r.done && Object.keys(r.done).length));
+  }).length;
+
+  // 最新体重
+  const wDays = Object.keys(S.days).filter(d=>S.days[d].w).sort();
+  const lastW = wDays.length ? S.days[wDays[wDays.length-1]].w : S.startW;
+  const loss = Math.max(0, +(S.startW - lastW).toFixed(1));
+  const gap = Math.max(0, +(lastW - S.goalW).toFixed(1));
+
+  // 今日完成率
+  const t = getTasks(currentWeekIdx());
+  const all = [...t.diet, ...t.act, ...t.habit];
+  const wi = currentWeekIdx();
+  let don = 0;
+  all.forEach(x=>{ if(rec.done && rec.done[x.k+'|'+wi]) don++; });
+  const todayRate = all.length ? Math.round(don/all.length*100) : 0;
+
+  // 总进度：按体重
+  const totalRange = S.startW - S.goalW;
+  const prog = totalRange > 0 ? Math.min(100, Math.max(0, Math.round((S.startW - lastW)/totalRange*100))) : 0;
+
+  document.getElementById('statStay').textContent = stayDays + '天';
+  document.getElementById('statLoss').textContent = loss + '斤';
+  document.getElementById('statToday').textContent = todayRate + '%';
+  document.getElementById('statGap').textContent = gap + '斤';
+  document.getElementById('progBar').style.width = prog + '%';
+  document.getElementById('progTxt').textContent = prog + '%';
+  document.getElementById('subTitle').textContent =
+    `第${currentWeekIdx()+1}周 / 共${TOTAL_WEEKS}周 · ${S.startW}斤 → ${S.goalW}斤`;
+
+  document.getElementById('waterTxt').textContent = (rec.water||0) + ' / 8 杯';
+  document.getElementById('sleepInput').value = rec.sleep || '';
+  document.getElementById('noteInput').value = rec.note || '';
+  document.getElementById('wInput').value = '';
+  document.getElementById('startW').value = S.startW;
+  document.getElementById('goalW').value = S.goalW;
+
+  const wTip = document.getElementById('wTip');
+  if(wDays.length){
+    const last = S.days[wDays[wDays.length-1]].w;
+    wTip.textContent = `最近记录：${wDays[wDays.length-1].slice(5)} · ${last}斤（已减${loss}斤，距目标${gap}斤）`;
+  } else wTip.textContent = '尚未记录，先记一次今天的体重吧';
+}
+
+/* ================= 图表 ================= */
+let c1,c2,c3;
+function renderCharts(){
+  const ws = document.getElementById('chartWeight');
+  const rs = document.getElementById('chartRate');
+  const wks = document.getElementById('chartWeek');
+  if(!ws) return;
+  if(!c1) c1 = echarts.init(ws);
+  if(!c2) c2 = echarts.init(rs);
+  if(!c3) c3 = echarts.init(wks);
+
+  // 体重趋势
+  const wDays = Object.keys(S.days).filter(d=>S.days[d].w).sort();
+  const actual = wDays.map(d=>({ x:d.slice(5), y:S.days[d].w }));
+  const startD = S.startDate;
+  const totalRange = S.startW - S.goalW;
+  const targetLine = [];
+  for(let i=0;i<=TOTAL_WEEKS;i++){
+    targetLine.push({ x: addDays(startD, i*7).slice(5), y: +(S.startW - totalRange*(i/TOTAL_WEEKS)).toFixed(1) });
+  }
+  c1.setOption({
+    grid:{left:38,right:12,top:16,bottom:26},
+    xAxis:{type:'category',data:targetLine.map(p=>p.x),axisLabel:{fontSize:10,color:'#9ca3af'}},
+    yAxis:{type:'value',min:Math.min(S.goalW-2, ...actual.map(a=>a.y)) ,axisLabel:{fontSize:10,color:'#9ca3af'}},
+    tooltip:{trigger:'axis'},
+    series:[
+      { name:'目标', type:'line', data:targetLine.map(p=>p.y), smooth:true, symbol:'none',
+        lineStyle:{type:'dashed',width:2,color:'#cbd5e1'} },
+      { name:'实际', type:'line', data:actual.map(a=>{
+          const idx = targetLine.findIndex(p=>p.x===a.x);
+          return { value:[a.x, a.y] };
+        }).map(a=>a.value[1]), smooth:true, symbolSize:6,
+        lineStyle:{width:3,color:'#0f766e'}, itemStyle:{color:'#0f766e'},
+        connectNulls:true }
+    ],
+    legend:{show:true,top:0,textStyle:{fontSize:10}}
+  });
+
+  // 近14天完成率
+  const days = [];
+  for(let i=13;i>=0;i--) days.push(addDays(todayStr(), -i));
+  const rates = days.map(d=>{
+    const wi = dayDiff(S.startDate, d)>=0 ? Math.floor(dayDiff(S.startDate,d)/7) : 0;
+    const wiC = Math.max(0, Math.min(TOTAL_WEEKS-1, wi));
+    const t = getTasks(wiC);
+    const all = [...t.diet, ...t.act, ...t.habit];
+    const rec = S.days[d];
+    if(!rec || !rec.done || d > todayStr()) return null;
+    let don=0; all.forEach(x=>{ if(rec.done[x.k+'|'+wiC]) don++; });
+    return Math.round(don/all.length*100);
+  });
+  c2.setOption({
+    grid:{left:34,right:12,top:16,bottom:26},
+    xAxis:{type:'category',data:days.map(d=>d.slice(5)),axisLabel:{fontSize:9,color:'#9ca3af',interval:2}},
+    yAxis:{type:'value',max:100,axisLabel:{fontSize:10,color:'#9ca3af'}},
+    tooltip:{trigger:'axis',formatter:p=>p[0].name+'：'+(p[0].value==null?'未打卡':p[0].value+'%')},
+    series:[{ type:'bar', data:rates.map(v=>({ value:v, itemStyle:{ color: v==null?'#e5e7eb' : v>=80?'#0f766e' : v>=50?'#eab308':'#f59e0b', borderRadius:[4,4,0,0] } })), barWidth:'58%' }]
+  });
+
+  // 每周完成率
+  const wkNames=[], wkRates=[];
+  for(let wi=0; wi<TOTAL_WEEKS; wi++){
+    const ws2 = weekStartDate(wi);
+    let tot=0, don=0;
+    const t = getTasks(wi); const all=[...t.diet,...t.act,...t.habit];
+    for(let d=0; d<7; d++){
+      const ds = addDays(ws2,d);
+      if(dayDiff(ds, todayStr())>0) continue;
+      const rec = S.days[ds]; tot += all.length;
+      if(rec && rec.done) all.forEach(x=>{ if(rec.done[x.k+'|'+wi]) don++; });
+      if(dayDiff(ds,S.startDate)<0) tot -= all.length;
+    }
+    if(tot<=0) continue;
+    wkNames.push('W'+(wi+1)); wkRates.push(Math.round(don/tot*100));
+  }
+  c3.setOption({
+    grid:{left:34,right:12,top:16,bottom:26},
+    xAxis:{type:'category',data:wkNames,axisLabel:{fontSize:9,color:'#9ca3af'}},
+    yAxis:{type:'value',max:100,axisLabel:{fontSize:10,color:'#9ca3af'}},
+    tooltip:{trigger:'axis'},
+    series:[{ type:'line', data:wkRates, smooth:true, symbolSize:6,
+      lineStyle:{width:3,color:'#0f766e'}, itemStyle:{color:'#0f766e'},
+      areaStyle:{color:'rgba(15,118,110,.12)'} }]
+  });
+}
+window.addEventListener('resize', ()=>{ try{c1&&c1.resize();c2&&c2.resize();c3&&c3.resize();}catch(e){} });
+
+/* ================= Tab 切换 ================= */
+function go(tab){
+  document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+  const el = document.getElementById('sec-'+tab);
+  if(el) el.classList.remove('hidden');
+  document.querySelectorAll('.navtab').forEach(n=>n.classList.toggle('act', n.dataset.tab===tab));
+  if(tab==='charts'){ setTimeout(()=>{ renderCharts(); c1&&c1.resize();c2&&c2.resize();c3&&c3.resize(); }, 60); }
+  if(tab==='food') renderFoodEditor();
+  if(tab==='home') renderWeeks();
+  if(tab==='checkin') { renderTodayMeals(); }
+  window.scrollTo(0,0);
+}
+
+/* ================= 导入导出 ================= */
+function exportData(){
+  const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '减肥打卡备份_'+todayStr()+'.json';
+  a.click();
+}
+function importData(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ev=>{
+    try{
+      const d = JSON.parse(ev.target.result);
+      if(!d || typeof d!=='object') throw 0;
+      S = d; save(); renderAll(); alert('导入成功！');
+    }catch(err){ alert('文件格式不对'); }
+  };
+  r.readAsText(f);
+  e.target.value='';
+}
+function clearData(){
+  if(!confirm('确定清空全部数据？此操作不可恢复，建议先导出备份。')) return;
+  localStorage.removeItem(KEY); load(); renderAll(); alert('已清空');
+}
+
+/* ================= 初始化 ================= */
+function renderAll(){
+  renderStats();
+  renderWeeks();
+  renderTodayMeals();
+}
+load();
+renderAll();
+// 默认进入打卡表
+setTimeout(()=>go('home'), 30);
+</script>
+</body>
+</html>
